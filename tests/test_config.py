@@ -123,3 +123,20 @@ def test_settings_from_env():
     assert settings.host == "0.0.0.0" and settings.accounts_file == "/config/accounts.yaml"
     with pytest.raises(ConfigError):
         Settings.from_env({"MAX_ATTACHMENT_MB": "0"})
+
+
+def test_move_mode_allows_move_but_not_flags_or_drafts(tmp_path):
+    text = VALID.replace("    mode: readwrite\n", "    mode: move\n")
+    info = load_accounts(write(tmp_path, text), ENV)["info"]
+    assert info.mode == "move" and info.can_move and not info.writable
+
+
+def test_readwrite_implies_move(tmp_path):
+    accounts = load_accounts(write(tmp_path, VALID), ENV)
+    assert accounts["info"].can_move and accounts["info"].writable
+    assert not accounts["support"].can_move
+
+
+def test_no_auth_requires_explicit_opt_in():
+    assert Settings.from_env({}).allow_no_auth is False
+    assert Settings.from_env({"MCP_ALLOW_NO_AUTH": "true"}).allow_no_auth is True

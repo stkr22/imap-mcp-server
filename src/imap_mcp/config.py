@@ -11,7 +11,7 @@ from typing import Literal
 
 import yaml
 
-Mode = Literal["readonly", "readwrite"]
+Mode = Literal["readonly", "move", "readwrite"]
 Security = Literal["tls", "starttls"]
 
 _ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
@@ -51,6 +51,11 @@ class Account:
     folders_deny: tuple[str, ...] = ()
 
     @property
+    def can_move(self) -> bool:
+        """`move` enables move_messages only; `readwrite` adds set_flags and create_draft."""
+        return self.mode in ("move", "readwrite")
+
+    @property
     def writable(self) -> bool:
         return self.mode == "readwrite"
 
@@ -83,6 +88,7 @@ class Settings:
     max_attachment_mb: int = 10
     log_level: str = "INFO"
     allowed_hosts: tuple[str, ...] = ()
+    allow_no_auth: bool = False
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> Settings:
@@ -97,6 +103,7 @@ class Settings:
                 max_attachment_mb=_positive_int(env, "MAX_ATTACHMENT_MB", cls.max_attachment_mb),
                 log_level=env.get("LOG_LEVEL", cls.log_level).upper(),
                 allowed_hosts=tuple(h.strip() for h in env.get("MCP_ALLOWED_HOSTS", "").split(",") if h.strip()),
+                allow_no_auth=env.get("MCP_ALLOW_NO_AUTH", "").lower() == "true",
             )
         except ValueError as exc:
             raise ConfigError(str(exc)) from exc
@@ -156,8 +163,8 @@ def _parse_account(entry: object, index: int, env: dict[str, str]) -> Account:
         raise ConfigError(f"{where}: environment variable {password_env} (or {password_env}_FILE) is not set")
 
     mode = entry.get("mode", "readonly")
-    if mode not in ("readonly", "readwrite"):
-        raise ConfigError(f"{where}: mode must be 'readonly' or 'readwrite'")
+    if mode not in ("readonly", "move", "readwrite"):
+        raise ConfigError(f"{where}: mode must be 'readonly', 'move' or 'readwrite'")
 
     security = entry.get("security", "tls")
     if security not in ("tls", "starttls"):

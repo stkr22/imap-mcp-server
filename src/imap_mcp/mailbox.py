@@ -53,6 +53,12 @@ class Mailbox:
             raise UserError(f"Account '{account_id}' is read-only")
         return account
 
+    def movable_account(self, account_id: str, allowed: frozenset[str] | None) -> Account:
+        account = self.account(account_id, allowed)
+        if not account.can_move:
+            raise UserError(f"Account '{account_id}' is read-only")
+        return account
+
     @staticmethod
     def check_folder(account: Account, folder: str) -> None:
         if not folder or not account.folder_allowed(folder):

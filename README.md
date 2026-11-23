@@ -37,7 +37,7 @@ accounts:
     port: 993
     username: support@example.com
     password_env: MAIL_SUPPORT_PASSWORD
-    mode: readonly                    # readonly | readwrite
+    mode: readonly                    # readonly | move | readwrite
     folders_allow: ["INBOX", "Archive/*"]
     folders_deny: ["Junk", "Trash"]
 ```
@@ -51,7 +51,7 @@ accounts:
 | `port` | no | 993 (143 with STARTTLS) | |
 | `security` | no | `tls` | `tls` (implicit TLS) or `starttls`. Plaintext is not supported |
 | `tls_verify` | no | `true` | Only disable for test servers with self-signed certificates |
-| `mode` | no | `readonly` | `readwrite` enables the write tools for this account |
+| `mode` | no | `readonly` | `move` enables only `move_messages`; `readwrite` also enables `set_flags` and `create_draft` |
 | `folders_allow` | no | all | Glob patterns; the folder delimiter depends on the server (`/` or `.`) |
 | `folders_deny` | no | none | Glob patterns; always wins over `folders_allow`. Denied folders are neither listed nor readable |
 
@@ -85,10 +85,10 @@ Generate keys with `python -c "import secrets; print(secrets.token_urlsafe(32))"
 | `get_thread` | Conversation via Message-ID/References/In-Reply-To, within the same folder |
 | `get_attachment` | Text, CSV, JSON, XML, PDF and attached e-mails as extracted text; other types as metadata |
 | `set_flags` | *(readwrite)* Set or clear `seen` / `flagged` |
-| `move_messages` | *(readwrite)* Move to another folder (requires the IMAP `MOVE` extension), returns new UIDs |
+| `move_messages` | *(move, readwrite)* Move to another folder (requires the IMAP `MOVE` extension), returns new UIDs |
 | `create_draft` | *(readwrite)* Store a plain-text draft in the Drafts folder. Nothing is sent |
 
-The write tools are only registered if at least one account has `mode: readwrite`.
+`move_messages` is registered if at least one account has `mode: move` or `readwrite`; `set_flags` and `create_draft` only for `readwrite`. The server refuses to start with an empty `MCP_API_KEYS` unless `MCP_ALLOW_NO_AUTH=true`.
 
 Messages are addressed by UID. Every result includes `uidvalidity` so that stale UIDs can be detected. Folders are opened with `EXAMINE` and messages fetched with `BODY.PEEK`, so reading never changes the `\Seen` flag.
 

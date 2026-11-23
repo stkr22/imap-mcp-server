@@ -7,7 +7,7 @@ accounts:
     port: 993
     username: support@example.com
     password_env: MAIL_SUPPORT_PASSWORD
-    mode: readonly         # readonly | readwrite (enables set_flags, move_messages, create_draft)
+    mode: readonly         # readonly | move (move_messages only) | readwrite (adds set_flags, create_draft)
     folders_allow: ["INBOX", "Archive/*"]   # optional glob patterns
     folders_deny: ["Junk", "Trash"]         # optional, always wins over folders_allow
 
