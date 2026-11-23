@@ -60,7 +60,7 @@ jobs:
           mkdir -p /tmp/cfg
           printf 'accounts:\n  - {id: demo, host: imap.example.com, username: demo, password_env: MAIL_DEMO_PASSWORD}\n' > /tmp/cfg/accounts.yaml
           docker run -d --name imap-mcp --read-only --cap-drop ALL --security-opt no-new-privileges:true \
-            -e MAIL_DEMO_PASSWORD=x -v /tmp/cfg/accounts.yaml:/config/accounts.yaml:ro -p 127.0.0.1:8000:8000 imap-mcp:ci
+            -e MAIL_DEMO_PASSWORD=x -e MCP_API_KEYS=ci-key -v /tmp/cfg/accounts.yaml:/config/accounts.yaml:ro -p 127.0.0.1:8000:8000 imap-mcp:ci
           for i in $(seq 1 20); do
             curl -sf http://127.0.0.1:8000/health && exit 0
             sleep 1

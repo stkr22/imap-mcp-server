@@ -183,9 +183,29 @@ def build_server(app: App) -> MCPServer:
         acc = await _account(app, account, ctx)
         return await app.run("get_attachment", account, partial(mailbox.get_attachment, acc, folder, uid, part))
 
+    if any(a.can_move for a in mailbox.accounts.values()):
+        _register_move_tool(mcp, app)
     if any(a.writable for a in mailbox.accounts.values()):
         _register_write_tools(mcp, app)
     return mcp
+
+
+def _register_move_tool(mcp: MCPServer, app: App) -> None:
+    mailbox = app.mailbox
+
+    @mcp.tool(annotations=WRITE)
+    async def move_messages(
+        account: AccountId,
+        folder: Folder,
+        uids: Uids,
+        target_folder: Folder,
+        ctx: Context,
+    ) -> dict[str, Any]:
+        """Move messages to another folder and return their new uids. Only for accounts in move or
+        readwrite mode. Ask the user for confirmation before calling."""
+        acc = await _account(app, account, ctx, move=True)
+        call = partial(mailbox.move_messages, acc, folder, uids, target_folder)
+        return await app.run("move_messages", account, call)
 
 
 def _register_write_tools(mcp: MCPServer, app: App) -> None:
@@ -204,20 +224,6 @@ def _register_write_tools(mcp: MCPServer, app: App) -> None:
         Ask the user for confirmation before calling."""
         acc = await _account(app, account, ctx, write=True)
         return await app.run("set_flags", account, partial(mailbox.set_flags, acc, folder, uids, seen, flagged))
-
-    @mcp.tool(annotations=WRITE)
-    async def move_messages(
-        account: AccountId,
-        folder: Folder,
-        uids: Uids,
-        target_folder: Folder,
-        ctx: Context,
-    ) -> dict[str, Any]:
-        """Move messages to another folder and return their new uids. Only for accounts in readwrite
-        mode. Ask the user for confirmation before calling."""
-        acc = await _account(app, account, ctx, write=True)
-        call = partial(mailbox.move_messages, acc, folder, uids, target_folder)
-        return await app.run("move_messages", account, call)
 
     @mcp.tool(annotations=WRITE)
     async def create_draft(
@@ -256,8 +262,10 @@ def _accept_aliases(mapping: dict[str, str]) -> Callable[[F], F]:
     return decorator
 
 
-async def _account(app: App, account_id: str, ctx: Context, write: bool = False) -> Account:
+async def _account(app: App, account_id: str, ctx: Context, write: bool = False, move: bool = False) -> Account:
     try:
+        if move:
+            return app.mailbox.movable_account(account_id, app.scope(ctx))
         if write:
             return app.mailbox.writable_account(account_id, app.scope(ctx))
         return app.mailbox.account(account_id, app.scope(ctx))
@@ -313,6 +321,8 @@ def main() -> None:
         configure_logging(settings.log_level)
         accounts = load_accounts(settings.accounts_file)
         app, state = create_app(settings, accounts)
+        if not state.keyring.enabled and not settings.allow_no_auth:
+            raise ConfigError("MCP_API_KEYS is empty: set a key, or MCP_ALLOW_NO_AUTH=true to serve without auth")
     except ConfigError as exc:
         logging.basicConfig(stream=sys.stderr)
         logging.getLogger("imap_mcp").error("configuration error: %s", exc)
