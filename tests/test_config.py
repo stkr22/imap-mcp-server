@@ -140,3 +140,22 @@ def test_readwrite_implies_move(tmp_path):
 def test_no_auth_requires_explicit_opt_in():
     assert Settings.from_env({}).allow_no_auth is False
     assert Settings.from_env({"MCP_ALLOW_NO_AUTH": "true"}).allow_no_auth is True
+
+
+def test_username_from_env(tmp_path):
+    text = "accounts:\n  - {id: a, host: h, username_env: U, password_env: P}\n"
+    assert load_accounts(write(tmp_path, text), {"U": "me@example.com", "P": "x"})["a"].username == "me@example.com"
+
+
+def test_username_env_unset_fails(tmp_path):
+    text = "accounts:\n  - {id: a, host: h, username_env: U, password_env: P}\n"
+    with pytest.raises(ConfigError, match="U"):
+        load_accounts(write(tmp_path, text), {"P": "x"})
+
+
+def test_username_and_username_env_are_exclusive(tmp_path):
+    both = "accounts:\n  - {id: a, host: h, username: u, username_env: U, password_env: P}\n"
+    neither = "accounts:\n  - {id: a, host: h, password_env: P}\n"
+    for text in (both, neither):
+        with pytest.raises(ConfigError, match="exactly one"):
+            load_accounts(write(tmp_path, text), {"U": "u", "P": "x"})

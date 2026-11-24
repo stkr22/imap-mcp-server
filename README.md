@@ -46,7 +46,8 @@ accounts:
 |---|---|---|---|
 | `id` | yes | – | Stable identifier (`a-z`, `0-9`, `_`, `-`) |
 | `label` | no | `id` | Display name shown to the LLM |
-| `host`, `username` | yes | – | IMAP server and login, never shown to the LLM |
+| `host` | yes | – | IMAP server, never shown to the LLM |
+| `username` or `username_env` | one of them | – | Login, or the environment variable (or `<NAME>_FILE`) holding it, never shown to the LLM |
 | `password_env` | yes | – | Name of the env variable holding the password. `<NAME>_FILE` (Docker secrets) works too |
 | `port` | no | 993 (143 with STARTTLS) | |
 | `security` | no | `tls` | `tls` (implicit TLS) or `starttls`. Plaintext is not supported |
