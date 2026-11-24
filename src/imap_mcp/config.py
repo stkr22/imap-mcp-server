@@ -21,6 +21,7 @@ _ALLOWED_KEYS = {
     "host",
     "port",
     "username",
+    "username_env",
     "password_env",
     "mode",
     "security",
@@ -148,7 +149,7 @@ def _parse_account(entry: object, index: int, env: dict[str, str]) -> Account:
     unknown = set(entry) - _ALLOWED_KEYS
     if unknown:
         raise ConfigError(f"{where}: unknown keys {sorted(unknown)}")
-    for key in ("id", "host", "username", "password_env"):
+    for key in ("id", "host", "password_env"):
         if not isinstance(entry.get(key), str) or not entry[key].strip():
             raise ConfigError(f"{where}: '{key}' is required")
 
@@ -156,6 +157,8 @@ def _parse_account(entry: object, index: int, env: dict[str, str]) -> Account:
     if not _ID_PATTERN.match(account_id):
         raise ConfigError(f"{where}: id '{account_id}' must match {_ID_PATTERN.pattern}")
     where = f"account '{account_id}'"
+
+    username = _resolve_username(entry, env, where)
 
     password_env = entry["password_env"]
     password = _resolve_secret(env, password_env)
@@ -183,7 +186,7 @@ def _parse_account(entry: object, index: int, env: dict[str, str]) -> Account:
         label=str(entry.get("label") or account_id),
         host=entry["host"],
         port=port,
-        username=entry["username"],
+        username=username,
         password=password,
         mode=mode,
         security=security,
@@ -191,6 +194,23 @@ def _parse_account(entry: object, index: int, env: dict[str, str]) -> Account:
         folders_allow=_patterns(entry, "folders_allow", where),
         folders_deny=_patterns(entry, "folders_deny", where),
     )
+
+
+def _resolve_username(entry: dict, env: dict[str, str], where: str) -> str:
+    """The login comes from `username`, or from the variable named by `username_env` (keeps it out of git)."""
+    literal, name = entry.get("username"), entry.get("username_env")
+    if bool(literal) == bool(name):
+        raise ConfigError(f"{where}: set exactly one of 'username' or 'username_env'")
+    if literal:
+        if not isinstance(literal, str) or not literal.strip():
+            raise ConfigError(f"{where}: 'username' must be a non-empty string")
+        return literal
+    if not isinstance(name, str):
+        raise ConfigError(f"{where}: 'username_env' must be a variable name")
+    value = _resolve_secret(env, name)
+    if not value:
+        raise ConfigError(f"{where}: environment variable {name} (or {name}_FILE) is not set")
+    return value
 
 
 def _resolve_secret(env: dict[str, str], name: str) -> str | None:
